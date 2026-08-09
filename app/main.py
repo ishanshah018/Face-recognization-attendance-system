@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+import sqlite3
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
@@ -298,6 +299,44 @@ def delete_student(student_id: int) -> dict:
             face_service.reset_model()
             conn.execute("DELETE FROM model_versions")
     return {"deleted": True, "student_id": student_id}
+
+
+@app.post("/api/system/clear")
+def clear_system_data() -> dict:
+    try:
+        # 1. Clear database tables
+        with get_connection() as conn:
+            conn.execute("DELETE FROM attendance_records")
+            conn.execute("DELETE FROM attendance_sessions")
+            conn.execute("DELETE FROM face_samples")
+            conn.execute("DELETE FROM recognition_events")
+            conn.execute("DELETE FROM model_versions")
+            conn.execute("DELETE FROM college_students")
+            try:
+                conn.execute("DELETE FROM STUDENTS")
+            except sqlite3.OperationalError:
+                pass
+
+        # 2. Delete all dataset image files
+        for path in DATASET_DIR.glob("user.*.*.jpg"):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+        # 3. Delete trained model file
+        if TRAINING_DATA_PATH.exists():
+            try:
+                TRAINING_DATA_PATH.unlink()
+            except OSError:
+                pass
+
+        # 4. Reset recognizer model state
+        face_service.reset_model()
+
+        return {"success": True, "message": "All data cleared successfully."}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @app.post("/api/enrollment/capture")
