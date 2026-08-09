@@ -146,3 +146,7 @@ out/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Project specific
+dataset/
+recognizer/
